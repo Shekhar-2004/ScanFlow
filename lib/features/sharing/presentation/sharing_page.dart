@@ -20,6 +20,8 @@ class SharingPage extends StatelessWidget {
     final file = File(pdfPath);
     final fileExists = file.existsSync();
     final fileSize = fileExists ? _formatBytes(file.lengthSync()) : 'Not available';
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return PopScope(
       canPop: false,
@@ -28,45 +30,21 @@ class SharingPage extends StatelessWidget {
         context.go(AppConstants.routeHome);
       },
       child: Scaffold(
-        backgroundColor: Colors.black.withValues(alpha: 0.5), // Semi-transparent backdrop
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            GestureDetector(
-              onTap: () => context.go(AppConstants.routeHome),
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.3,
-                color: Colors.transparent,
-              ),
-            ),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      // Drag Handle
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Title
-                      const Text(
-                        'Share Document',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                      ),
-                      const SizedBox(height: 24),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('Share Document'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(AppConstants.routeHome),
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
 
                       // File Info Block
                       Padding(
@@ -74,12 +52,13 @@ class SharingPage extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FA),
+                            color: theme.cardTheme.color ?? colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: colorScheme.outline, width: 1),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.picture_as_pdf, color: Colors.red[700], size: 40),
+                              Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 40),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
@@ -87,14 +66,14 @@ class SharingPage extends StatelessWidget {
                                   children: [
                                     Text(
                                       fileName,
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black),
+                                      style: theme.textTheme.titleMedium,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '$fileSize • PDF Document',
-                                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                      style: theme.textTheme.bodySmall,
                                     ),
                                   ],
                                 ),
@@ -130,8 +109,8 @@ class SharingPage extends StatelessWidget {
                                   );
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0066FF),
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: colorScheme.primary,
+                                  foregroundColor: colorScheme.onPrimary,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -154,20 +133,18 @@ class SharingPage extends StatelessWidget {
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  side: BorderSide(color: colorScheme.outline),
                                 ),
-                                child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
+                                child: Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.primary)),
                               ),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

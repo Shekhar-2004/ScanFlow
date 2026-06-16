@@ -80,7 +80,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
-        // Removed settings/profile/theme icons per specification
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: widget.onToggleTheme,
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _AnimatedCTA(

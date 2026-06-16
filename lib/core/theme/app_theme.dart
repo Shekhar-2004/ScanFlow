@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
   // Brand colors from the ScanFlow design system
@@ -55,6 +56,7 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
@@ -164,6 +166,7 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(

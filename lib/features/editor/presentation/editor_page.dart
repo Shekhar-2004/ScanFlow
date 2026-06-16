@@ -72,6 +72,14 @@ Uint8List? _isolateApplyEdits(Map<String, dynamic> args) {
   return Uint8List.fromList(img.encodeJpg(decoded, quality: 85));
 }
 
+/// Top-level isolate function for image classification.
+ImageClass _isolateClassifyImage(Uint8List bytes) {
+  var decoded = img.decodeImage(bytes);
+  if (decoded == null) return ImageClass.document; // safe fallback
+  decoded = img.bakeOrientation(decoded);
+  return ScannerImageUtils.classifyImage(decoded);
+}
+
 class EditorPage extends StatefulWidget {
   final List<String> imagePaths;
 
@@ -90,11 +98,14 @@ class _EditorPageState extends State<EditorPage> {
   final Map<int, String> _pageFilters = {};
   final Map<int, double> _pageFilterIntensities = {};
   final Map<int, double> _pageRotations = {};
+  final Map<int, ImageClass> _pageClassification = {};
   List<String> _originalPaths = [];
   List<String> _displayPaths = []; // Currently cropped preview images
 
   int _selectedPageIndex = 0;
   bool _isCropping = false;
+  bool _isDraggingCropPoint = false;
+  Offset? _touchPositionInStack;
   double? _dragIntensity;
 
   @override
@@ -150,6 +161,7 @@ class _EditorPageState extends State<EditorPage> {
       if (decoded == null) return;
       decoded = img.bakeOrientation(decoded);
 
+      // Corner detection
       final corners = ScannerImageUtils.detectDocumentCorners(decoded);
       if (corners != null && corners.length == 4) {
         final tl = Offset(corners[0].x / decoded.width, corners[0].y / decoded.height);
@@ -157,11 +169,26 @@ class _EditorPageState extends State<EditorPage> {
         final br = Offset(corners[2].x / decoded.width, corners[2].y / decoded.height);
         final bl = Offset(corners[3].x / decoded.width, corners[3].y / decoded.height);
 
-        setState(() {
-          _cropPoints[index] = [tl, tr, br, bl];
-        });
+        if (mounted) {
+          setState(() {
+            _cropPoints[index] = [tl, tr, br, bl];
+          });
+        }
       } else {
         _setDefaultCropPoints(index);
+      }
+
+      // Document / photo classification (runs asynchronously)
+      if (!_pageClassification.containsKey(index)) {
+        final imageClass = await compute(
+          _isolateClassifyImage,
+          bytes,
+        );
+        if (mounted) {
+          setState(() {
+            _pageClassification[index] = imageClass;
+          });
+        }
       }
     } catch (e) {
       _setDefaultCropPoints(index);
@@ -213,13 +240,6 @@ class _EditorPageState extends State<EditorPage> {
         setState(() {
           _cropPoints[_selectedPageIndex] = corners;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document edges auto-detected!'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
         throw StateError("No clear document edges detected.");
       }
@@ -248,9 +268,6 @@ class _EditorPageState extends State<EditorPage> {
         const Offset(0.0, 1.0),
       ];
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Crop area reset to full image.')),
-    );
   }
 
   Future<void> _enterCroppingMode() async {
@@ -286,7 +303,16 @@ class _EditorPageState extends State<EditorPage> {
     try {
       final originalPath = _originalPaths[_selectedPageIndex];
       final file = File(originalPath);
-      final bytes = await file.readAsBytes();
+      var bytes = await file.readAsBytes();
+      
+      // Speed up Dart image processing by scaling down before processing
+      bytes = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1600,
+        minHeight: 1600,
+        quality: 95,
+      );
+
       final pts = _cropPoints[_selectedPageIndex] ?? [
         const Offset(0.0, 0.0),
         const Offset(1.0, 0.0),
@@ -316,13 +342,6 @@ class _EditorPageState extends State<EditorPage> {
       if (Navigator.canPop(context)) {
         Navigator.pop(context); // Close dialog
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Perspective crop applied successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       if (Navigator.canPop(context)) {
@@ -471,21 +490,19 @@ class _EditorPageState extends State<EditorPage> {
         final angle = _pageRotations[i] ?? 0.0;
         final filter = _pageFilters[i] ?? AppConstants.filterOriginal;
 
-        // 1. Fast Native Scale, Rotate, and initial Compression
+        // 1. Fast Native Scale and initial Compression
         var processedBytes = await FlutterImageCompress.compressWithList(
           bytes,
           minWidth: 2400,
           minHeight: 2400,
-          quality: filter == AppConstants.filterOriginal ? 85 : 100, 
-          rotate: angle.toInt(),
+          quality: filter == AppConstants.filterOriginal && angle == 0.0 ? 85 : 100,
         );
 
-        // 2. Pure Dart Color Filtering (only if necessary)
-        // Since the image is now max 2400px, this pure-Dart operation will be significantly faster.
-        if (filter != AppConstants.filterOriginal) {
+        // 2. Pure Dart Color Filtering and Rotation
+        if (filter != AppConstants.filterOriginal || angle > 0.0) {
           final filteredBytes = await compute(_isolateApplyEdits, {
             'bytes': processedBytes,
-            'angle': 0.0, // Already rotated natively!
+            'angle': angle,
             'filter': filter,
             'intensity': _pageFilterIntensities[i] ?? 1.0,
           });
@@ -562,13 +579,11 @@ class _EditorPageState extends State<EditorPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: Text(
           _isCropping ? 'Crop & Align' : 'Edit Document',
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         leading: const SizedBox.shrink(), // Hidden default back button, handled by Cancel
@@ -610,83 +625,196 @@ class _EditorPageState extends State<EditorPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(AppConstants.spacingM),
-                child: Center(
-                  child: _isCropping
-                        ? InteractiveCropView(
-                            imagePath: originalPage,
-                            points: _cropPoints[_selectedPageIndex] ?? [
-                              const Offset(0.05, 0.05),
-                              const Offset(0.95, 0.05),
-                              const Offset(0.95, 0.95),
-                              const Offset(0.05, 0.95),
-                            ],
-                            onPointsChanged: (pts) {
-                              setState(() {
-                                _cropPoints[_selectedPageIndex] = pts;
-                              });
-                            },
-                            onDragStateChanged: (pt, dragging) {},
-                          )
-                        : Stack(
-                            children: [
-                              AnimatedRotation(
-                                turns: rotationAngle / 360.0,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                child: currentPage.isNotEmpty
-                                    ? ColorFiltered(
-                                        colorFilter: ColorFilter.matrix(
-                                          _getColorMatrix(saturation, contrast),
-                                        ),
-                                        child: Image.file(
-                                          File(currentPage),
-                                          key: ValueKey(currentPage),
-                                          fit: BoxFit.contain,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                          errorBuilder: (context, error, stackTrace) => Center(
-                                            child: Text(
-                                              'Unable to load this page image.',
-                                              textAlign: TextAlign.center,
-                                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        SizedBox(
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                          child: Listener(
+                            onPointerDown: (e) => setState(() => _touchPositionInStack = e.localPosition),
+                            onPointerMove: (e) => setState(() => _touchPositionInStack = e.localPosition),
+                            onPointerUp: (e) => setState(() => _touchPositionInStack = null),
+                            onPointerCancel: (e) => setState(() => _touchPositionInStack = null),
+                            child: _isCropping
+                                ? RotatedBox(
+                                    quarterTurns: (rotationAngle / 90).round(),
+                                    child: InteractiveCropView(
+                                      imagePath: originalPage,
+                                      points: _cropPoints[_selectedPageIndex] ?? [
+                                        const Offset(0.05, 0.05),
+                                        const Offset(0.95, 0.05),
+                                        const Offset(0.95, 0.95),
+                                        const Offset(0.05, 0.95),
+                                      ],
+                                      onPointsChanged: (pts) {
+                                        setState(() {
+                                          _cropPoints[_selectedPageIndex] = pts;
+                                        });
+                                      },
+                                      onDragStateChanged: (pt, dragging) {
+                                        setState(() {
+                                          _isDraggingCropPoint = dragging;
+                                        });
+                                      },
+                                    ),
+                                  )
+                                : Stack(
+                                    children: [
+                                      RotatedBox(
+                                        quarterTurns: (rotationAngle / 90).round(),
+                                        child: currentPage.isNotEmpty
+                                            ? ColorFiltered(
+                                                colorFilter: ColorFilter.matrix(
+                                                  _getColorMatrix(saturation, contrast),
+                                                ),
+                                                child: Image.file(
+                                                  File(currentPage),
+                                                  key: ValueKey(currentPage),
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  errorBuilder: (context, error, stackTrace) => Center(
+                                                    child: Text(
+                                                      'Unable to load this page image.',
+                                                      textAlign: TextAlign.center,
+                                                      style: theme.textTheme.bodyMedium,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Center(
+                                                child: Text(
+                                                  'Scan your first page to preview it here.',
+                                                  textAlign: TextAlign.center,
+                                                  style: theme.textTheme.bodyMedium,
+                                                ),
+                                              ),
+                                      ),
+                                      // Photo detection badge
+                                      if (_pageClassification[_selectedPageIndex] == ImageClass.photo)
+                                        Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1A1A1A).withValues(alpha: 0.85),
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: const Color(0xFF888888).withValues(alpha: 0.5),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.photo_camera_outlined,
+                                                    size: 13, color: Color(0xFFAAAAAA)),
+                                                SizedBox(width: 5),
+                                                Text(
+                                                  'Photo detected — use Original or High Contrast',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFFAAAAAA),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
-                                      )
-                                    : Center(
-                                        child: Text(
-                                          'Scan your first page to preview it here.',
-                                          textAlign: TextAlign.center,
-                                          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
+                                      if (activeFilter != AppConstants.filterOriginal)
+                                        Positioned(
+                                          bottom: 8,
+                                          right: 8,
+                                          child: FloatingActionButton.small(
+                                            heroTag: 'apply_to_all_btn',
+                                            backgroundColor: const Color(0xFF222222).withValues(alpha: 0.8),
+                                            onPressed: () {
+                                              setState(() {
+                                                final currentFilter = _pageFilters[_selectedPageIndex] ?? AppConstants.filterOriginal;
+                                                final currentIntensity = _pageFilterIntensities[_selectedPageIndex] ?? 1.0;
+                                                for (int i = 0; i < _originalPaths.length; i++) {
+                                                  _pageFilters[i] = currentFilter;
+                                                  _pageFilterIntensities[i] = currentIntensity;
+                                                }
+                                              });
+                                            },
+                                            tooltip: 'Apply to All',
+                                            child: Icon(Icons.done_all, color: theme.colorScheme.onPrimary, size: 20),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                        
+                        // Unrotated Magnifier UI
+                        if (_isCropping && _isDraggingCropPoint && _touchPositionInStack != null)
+                          Positioned(
+                            left: _touchPositionInStack!.dx - 90.0,
+                            top: _touchPositionInStack!.dy >= 180.0
+                                ? _touchPositionInStack!.dy - 220.0
+                                : _touchPositionInStack!.dy + 40.0,
+                            child: IgnorePointer(
+                              child: Container(
+                                width: 180,
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.35),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: RawMagnifier(
+                                        size: const Size(180, 180),
+                                        magnificationScale: 3.0,
+                                        focalPointOffset: _touchPositionInStack!.dy >= 180.0
+                                            ? const Offset(0.0, 130.0)
+                                            : const Offset(0.0, -130.0),
+                                      ),
+                                    ),
+                                    Center(
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.red, width: 1.5),
                                         ),
                                       ),
-                              ),
-                              if (activeFilter != AppConstants.filterOriginal)
-                                Positioned(
-                                  bottom: 8,
-                                  right: 8,
-                                  child: FloatingActionButton.small(
-                                    heroTag: 'apply_to_all_btn',
-                                    backgroundColor: const Color(0xFF222222).withValues(alpha: 0.8),
-                                    onPressed: () {
-                                      setState(() {
-                                        final currentFilter = _pageFilters[_selectedPageIndex] ?? AppConstants.filterOriginal;
-                                        final currentIntensity = _pageFilterIntensities[_selectedPageIndex] ?? 1.0;
-                                        for (int i = 0; i < _originalPaths.length; i++) {
-                                          _pageFilters[i] = currentFilter;
-                                          _pageFilterIntensities[i] = currentIntensity;
-                                        }
-                                      });
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Applied to all pages')),
-                                      );
-                                    },
-                                    tooltip: 'Apply to All',
-                                    child: const Icon(Icons.done_all, color: Colors.white, size: 20),
-                                  ),
+                                    ),
+                                    Center(
+                                      child: Container(
+                                        width: 1,
+                                        height: 32,
+                                        color: Colors.red.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                    Center(
+                                      child: Container(
+                                        width: 32,
+                                        height: 1,
+                                        color: Colors.red.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                            ],
+                              ),
+                            ),
                           ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -701,7 +829,6 @@ class _EditorPageState extends State<EditorPage> {
                       'Page ${_selectedPageIndex + 1} of ${_displayPaths.length}',
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                     const Spacer(),
@@ -833,11 +960,11 @@ class _EditorPageState extends State<EditorPage> {
                               height: 48,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFF222222),
+                                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline,
                               ),
                               child: Icon(
                                 _getFilterIcon(filter),
-                                color: isSelected ? Colors.white : const Color(0xFF6C757D),
+                                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -876,10 +1003,10 @@ class _EditorPageState extends State<EditorPage> {
                         context.pop();
                       }
                     },
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(fontSize: 16)),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.rotate_right, color: Colors.white),
+                    icon: Icon(Icons.rotate_right, color: theme.iconTheme.color),
                     onPressed: _rotateImage,
                     tooltip: 'Rotate',
                   ),
@@ -891,9 +1018,9 @@ class _EditorPageState extends State<EditorPage> {
                         _applyEditsAndProceed();
                       }
                     },
-                    child: const Text(
+                    child: Text(
                       'Apply & Continue',
-                      style: TextStyle(color: Color(0xFF0066FF), fontSize: 16, fontWeight: FontWeight.bold),
+                      style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -1124,65 +1251,7 @@ class _InteractiveCropViewState extends State<InteractiveCropView> {
                   ),
                 ),
 
-                // Magnifier Zoom Glass (RawMagnifier with premium UI)
-                if (_activePointIndex != -1 && _currentTouchPoint != null)
-                  Positioned(
-                    left: _currentTouchPoint!.dx - 90.0,
-                    top: _currentTouchPoint!.dy >= 180.0
-                        ? _currentTouchPoint!.dy - 220.0
-                        : _currentTouchPoint!.dy + 40.0,
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: RawMagnifier(
-                              size: const Size(180, 180),
-                              magnificationScale: 3.0,
-                              focalPointOffset: _currentTouchPoint!.dy >= 180.0
-                                  ? const Offset(0.0, 130.0)
-                                  : const Offset(0.0, -130.0),
-                            ),
-                          ),
-                          Center(
-                            child: Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.red, width: 1.5),
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: Container(
-                              width: 1,
-                              height: 32,
-                              color: Colors.red.withValues(alpha: 0.7),
-                            ),
-                          ),
-                          Center(
-                            child: Container(
-                              width: 32,
-                              height: 1,
-                              color: Colors.red.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // Magnifier removed from here and placed in EditorPage unrotated
               ],
             ),
           ),

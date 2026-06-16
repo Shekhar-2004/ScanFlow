@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  
   go_router: ^16.0.0
   camera: ^0.11.2
   image: ^4.5.4
@@ -25,8 +25,14 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+    
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "./lib/assets/scanflow_logo.png"

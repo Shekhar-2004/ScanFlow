@@ -105,14 +105,6 @@ class _DocumentViewerPageState extends State<DocumentViewerPage> {
       await PdfMetadataStore.deleteMetadata(widget.pdfPath);
       DocumentSession.instance.notifyDocumentsChanged();
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"$_fileName" has been deleted.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
       // Return to home screen
       context.go(AppConstants.routeHome);
     } catch (e) {
@@ -140,17 +132,7 @@ class _DocumentViewerPageState extends State<DocumentViewerPage> {
       await sourceFile.copy(destinationFile.path);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved to Downloads folder: ScanFirst/$_fileName'),
-          backgroundColor: Colors.green,
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {},
-          ),
-        ),
-      );
+      // Silently succeed
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -24,6 +24,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   late TextEditingController _nameController;
   bool _isSaved = false;
   bool _isGenerating = false;
+  bool _isDownloaded = false;
   String _generatedPdfPath = '';
   Completer<String>? _pdfCompleter;
 
@@ -57,9 +58,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         final destPath = '${destDir.path}/${file.path.split('/').last}';
         await file.copy(destPath);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloaded PDF to Downloads folder'), backgroundColor: Colors.green),
-          );
+          setState(() {
+            _isDownloaded = true;
+          });
         }
       }
     } catch (e) {
@@ -88,9 +89,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Saved ${pages.length} JPEGs to Pictures/ScanFlow'), backgroundColor: Colors.green),
-        );
+        // Silently succeed
       }
     } catch (e) {
       if (mounted) {
@@ -114,13 +113,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     });
 
     _pdfCompleter = Completer<String>();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Document saving in background...'),
-        backgroundColor: Colors.green,
-      ),
-    );
 
     try {
       PdfUtils.validatePageCount(pages);
@@ -174,6 +166,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     final pages = widget.imagePaths.isNotEmpty
         ? widget.imagePaths
         : DocumentSession.instance.pages;
@@ -187,13 +182,10 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF2F2F7), // Apple Notes Light Grey
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('PDF Preview', style: TextStyle(color: Colors.black)),
+          title: const Text('PDF Preview'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            icon: const Icon(Icons.arrow_back),
             onPressed: () {
               if (_isSaved) {
                 context.go(AppConstants.routeHome);
@@ -204,7 +196,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           ),
           actions: [
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.black),
+              icon: const Icon(Icons.more_vert),
               onSelected: (value) async {
                 if (value == 'jpeg') {
                   await _saveAsJpeg();
@@ -227,8 +219,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                 padding: const EdgeInsets.all(AppConstants.spacingL),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardTheme.color ?? colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outline, width: 1),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
@@ -240,12 +233,15 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                           controller: _nameController,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             isDense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                          style: theme.textTheme.titleMedium,
                         ),
                       ),
-                      const Icon(Icons.edit, color: Colors.grey, size: 20),
+                      Icon(Icons.edit, color: colorScheme.onSurfaceVariant, size: 20),
                     ],
                   ),
                 ),
@@ -261,11 +257,12 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: AppConstants.spacingL),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: theme.cardTheme.color ?? colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colorScheme.outline, width: 1),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -290,9 +287,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               // Bottom Actions
               Container(
                 padding: const EdgeInsets.all(AppConstants.spacingL),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5E5EA))),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  border: Border(top: BorderSide(color: colorScheme.outline)),
                 ),
                 child: SafeArea(
                   top: false,
@@ -337,6 +334,11 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
+                            if (_isDownloaded) {
+                              context.go(AppConstants.routeHome);
+                              return;
+                            }
+                            
                             if (!_isSaved) {
                               await _saveDocument();
                             }
@@ -354,13 +356,16 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                             await _downloadPdf();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE5E5EA),
-                            foregroundColor: Colors.black87,
+                            backgroundColor: colorScheme.secondaryContainer,
+                            foregroundColor: colorScheme.onSecondaryContainer,
                             elevation: 0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: const Text('Save to Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            _isDownloaded ? 'Back to Home' : 'Save to Files', 
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)
+                          ),
                         ),
                       ),
                     ],
