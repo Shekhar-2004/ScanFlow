@@ -2,6 +2,8 @@
 
 A lightweight, offline-first document scanner focused on speed, simplicity, privacy, and excellent user experience.
 
+APK to Download : [Click Here](https://drive.google.com/file/d/146rzNnUBlx8byr5W1eCiqw5GPhEbK7Iq/view?usp=sharing)
+
 ## Vision
 
 Most modern scanner applications have become bloated with cloud integrations, mandatory accounts, AI upselling, analytics, and excessive permissions. ScanFlow aims to provide the core functionality users actually need—scanning documents, improving readability, generating PDFs, and sharing them—while remaining lightweight, fast, and privacy-friendly.
