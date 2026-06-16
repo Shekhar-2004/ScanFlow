@@ -2,7 +2,7 @@
 
 A lightweight, offline-first document scanner focused on speed, simplicity, privacy, and excellent user experience.
 
-APK to Download : [Click Here](https://drive.google.com/file/d/146rzNnUBlx8byr5W1eCiqw5GPhEbK7Iq/view?usp=sharing)
+APK to Download : [Click Here](https://drive.google.com/file/d/1CcOnNP3XVfnWdVslEssnXrwo6kgSsK9R/view?usp=sharing)
 
 ## Vision
 

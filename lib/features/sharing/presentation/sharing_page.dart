@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_constants.dart';
 
-class SharingPage extends StatelessWidget {
+class SharingPage extends StatefulWidget {
   final String pdfPath;
 
   const SharingPage({
@@ -15,9 +15,16 @@ class SharingPage extends StatelessWidget {
   });
 
   @override
+  State<SharingPage> createState() => _SharingPageState();
+}
+
+class _SharingPageState extends State<SharingPage> {
+  bool _hasSaved = false;
+
+  @override
   Widget build(BuildContext context) {
-    final fileName = pdfPath.split('/').last;
-    final file = File(pdfPath);
+    final fileName = widget.pdfPath.split('/').last;
+    final file = File(widget.pdfPath);
     final fileExists = file.existsSync();
     final fileSize = fileExists ? _formatBytes(file.lengthSync()) : 'Not available';
     final theme = Theme.of(context);
@@ -103,7 +110,7 @@ class SharingPage extends StatelessWidget {
 
                                   await SharePlus.instance.share(
                                     ShareParams(
-                                      files: [XFile(pdfPath)],
+                                      files: [XFile(widget.pdfPath)],
                                       text: 'Here is the scanned PDF.',
                                     ),
                                   );
@@ -127,15 +134,36 @@ class SharingPage extends StatelessWidget {
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () {
-                                  context.go(AppConstants.routeHome);
+                                onPressed: () async {
+                                  if (_hasSaved) {
+                                    context.go(AppConstants.routeHome);
+                                  } else {
+                                    if (fileExists) {
+                                      await SharePlus.instance.share(
+                                        ShareParams(
+                                          files: [XFile(widget.pdfPath)],
+                                          text: 'Here is the scanned PDF.',
+                                        ),
+                                      );
+                                      if (mounted) {
+                                        setState(() => _hasSaved = true);
+                                      }
+                                    }
+                                  }
                                 },
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  side: BorderSide(color: colorScheme.outline),
+                                  side: BorderSide(color: _hasSaved ? theme.colorScheme.primary : colorScheme.outline),
                                 ),
-                                child: Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.primary)),
+                                child: Text(
+                                  _hasSaved ? 'Back to Home' : 'Save to Files',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

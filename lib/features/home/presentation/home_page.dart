@@ -82,7 +82,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: const Text(AppConstants.appName),
         actions: [
           IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(
+              widget.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: theme.colorScheme.onSurface, // Explicit color to prevent it from blending into the background
+            ),
             onPressed: widget.onToggleTheme,
           ),
         ],
