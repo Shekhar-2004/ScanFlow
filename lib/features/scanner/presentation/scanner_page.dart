@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -138,20 +139,7 @@ class _ScannerPageState extends State<ScannerPage> {
   }
 
   Future<String> _copyToDocuments(String sourcePath) async {
-    Directory rootDir;
-    if (Platform.isAndroid) {
-      final publicPics = Directory('/storage/emulated/0/Pictures');
-      if (await publicPics.exists()) {
-        rootDir = publicPics;
-      } else {
-        final externalDirs = await getExternalStorageDirectories(type: StorageDirectory.pictures);
-        rootDir = externalDirs?.isNotEmpty == true
-            ? externalDirs!.first
-            : await getApplicationDocumentsDirectory();
-      }
-    } else {
-      rootDir = await getApplicationDocumentsDirectory();
-    }
+    Directory rootDir = await getApplicationDocumentsDirectory();
 
     final scanDir = Directory('${rootDir.path}${Platform.pathSeparator}ScanFirst');
     if (!await scanDir.exists()) {
@@ -204,126 +192,147 @@ class _ScannerPageState extends State<ScannerPage> {
         foregroundColor: Colors.white,
         title: const Text('Scan Document'),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off),
-            onPressed: _toggleFlash,
-          ),
-        ],
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: _cameraController != null && _cameraController!.value.isInitialized
-                ? CameraPreview(_cameraController!)
-                : Container(
-                    color: Colors.grey[900],
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.camera_alt_outlined,
-                            size: 80,
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: AppConstants.spacingM),
-                          Text(
-                            'In-app camera preview is ready once permissions are granted.',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.7),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Camera Preview Frame with Radius 24
+            Positioned.fill(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 120), // Leave space for controls
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: _cameraController != null && _cameraController!.value.isInitialized
+                      ? CameraPreview(_cameraController!)
+                      : Container(
+                          color: Colors.grey[900],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 80,
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                ),
+                                const SizedBox(height: AppConstants.spacingM),
+                                Text(
+                                  'In-app camera preview is ready once permissions are granted.',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppConstants.spacingS),
+                                Text(
+                                  pageCount > 0
+                                      ? '$pageCount page${pageCount == 1 ? '' : 's'} ready for the PDF'
+                                      : 'No pages yet. Capture the first page to start.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
                             ),
-                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: AppConstants.spacingS),
-                          Text(
-                            pageCount > 0
-                                ? '$pageCount page${pageCount == 1 ? '' : 's'} ready for the PDF'
-                                : 'No pages yet. Capture the first page to start.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            top: 64,
-            bottom: 140,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: theme.colorScheme.primary, width: 2),
-                borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(top: 10, left: 10, child: _frameCorner(true, false)),
-                  Positioned(top: 10, right: 10, child: _frameCorner(false, true)),
-                  Positioned(bottom: 10, left: 10, child: _frameCorner(true, true)),
-                  Positioned(bottom: 10, right: 10, child: _frameCorner(false, false)),
-                ],
+                        ),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              color: Colors.black.withValues(alpha: 0.5),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    left: 32,
-                    child: IconButton(
-                      icon: const Icon(Icons.photo_library, color: Colors.white, size: 32),
-                      tooltip: 'Choose from Gallery',
-                      onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _isProcessing ? null : () => _pickImage(ImageSource.camera),
-                    child: Container(
-                      height: 80,
-                      width: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
-                      ),
+            
+            // Bottom Controls (Symmetrical three-column)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 120,
+              child: Container(
+                color: Colors.black,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Flash (Left)
+                    Expanded(
                       child: Center(
-                        child: Container(
-                          height: 64,
-                          width: 64,
-                          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                        child: IconButton(
+                          icon: Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off, color: Colors.white, size: 28),
+                          onPressed: _toggleFlash,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    
+                    // Capture (Center)
+                    Expanded(
+                      child: Center(
+                        child: _AnimatedCaptureButton(
+                          onPressed: _isProcessing ? () {} : () => _pickImage(ImageSource.camera),
+                        ),
+                      ),
+                    ),
+                    
+                    // Gallery (Right)
+                    Expanded(
+                      child: Center(
+                        child: IconButton(
+                          icon: const Icon(Icons.photo_library, color: Colors.white, size: 28),
+                          tooltip: 'Choose from Gallery',
+                          onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _frameCorner(bool top, bool left) {
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        border: Border(
-          top: top ? const BorderSide(color: Colors.white, width: 3) : BorderSide.none,
-          left: left ? const BorderSide(color: Colors.white, width: 3) : BorderSide.none,
-          right: !left ? const BorderSide(color: Colors.white, width: 3) : BorderSide.none,
-          bottom: !top ? const BorderSide(color: Colors.white, width: 3) : BorderSide.none,
+class _AnimatedCaptureButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _AnimatedCaptureButton({required this.onPressed});
+
+  @override
+  State<_AnimatedCaptureButton> createState() => _AnimatedCaptureButtonState();
+}
+
+class _AnimatedCaptureButtonState extends State<_AnimatedCaptureButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.mediumImpact();
+        setState(() => _isPressed = true);
+      },
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onPressed();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: Container(
+        width: 76,
+        height: 76,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+        ),
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOutCubic,
+            width: _isPressed ? 50 : 60,
+            height: _isPressed ? 50 : 60,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );

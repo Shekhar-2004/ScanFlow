@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
@@ -561,24 +562,35 @@ class _EditorPageState extends State<EditorPage> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFF111111),
       appBar: AppBar(
-        title: Text(_isCropping ? 'Crop & Align' : 'Edit Document'),
-        leading: _isCropping
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: 'Cancel crop',
-                onPressed: () => setState(() => _isCropping = false),
-              )
-            : null,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: Text(
+          _isCropping ? 'Crop & Align' : 'Edit Document',
+          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        leading: const SizedBox.shrink(), // Hidden default back button, handled by Cancel
         actions: _isCropping
             ? [
                 IconButton(
-                  icon: const Icon(Icons.check),
-                  tooltip: 'Apply crop',
-                  onPressed: _applyCropWarp,
+                  icon: const Icon(Icons.auto_fix_high),
+                  tooltip: 'Auto Snap',
+                  onPressed: _autoCropCurrentPage,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reset',
+                  onPressed: _resetCrop,
                 ),
               ]
             : [
+                IconButton(
+                  icon: const Icon(Icons.crop),
+                  tooltip: 'Crop',
+                  onPressed: _enterCroppingMode,
+                ),
                 IconButton(
                   icon: const Icon(Icons.add_photo_alternate),
                   tooltip: 'Add more pages',
@@ -589,428 +601,304 @@ class _EditorPageState extends State<EditorPage> {
                   tooltip: 'Delete page',
                   onPressed: _deleteCurrentPage,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.check),
-                  tooltip: 'Save Edits',
-                  onPressed: _applyEditsAndProceed,
-                ),
               ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Editor / Crop workspace
+            // Preview
             Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(AppConstants.spacingL),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                ),
-                clipBehavior: Clip.none,
+              child: Padding(
+                padding: const EdgeInsets.all(AppConstants.spacingM),
                 child: Center(
                   child: _isCropping
-                      ? Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Custom interactive crop layout
-                            InteractiveCropView(
-                              imagePath: originalPage,
-                              points: _cropPoints[_selectedPageIndex] ?? [
-                                const Offset(0.05, 0.05),
-                                const Offset(0.95, 0.05),
-                                const Offset(0.95, 0.95),
-                                const Offset(0.05, 0.95),
-                              ],
-                              onPointsChanged: (pts) {
-                                setState(() {
-                                  _cropPoints[_selectedPageIndex] = pts;
-                                });
-                              },
-                              onDragStateChanged: (pt, dragging) {
-                                // Magnifier state can be added here if needed
-                              },
-                            ),
-                          ],
-                        )
-                      : AnimatedRotation(
-                          turns: rotationAngle / 360.0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          child: Container(
-                            width: 280,
-                            height: 380,
-                            padding: const EdgeInsets.all(AppConstants.spacingL),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: currentPage.isNotEmpty
-                                ? ColorFiltered(
-                                    colorFilter: ColorFilter.matrix(
-                                      _getColorMatrix(saturation, contrast),
-                                    ),
-                                    child: Image.file(
-                                      File(currentPage),
-                                      key: ValueKey(currentPage),
-                                      fit: BoxFit.contain,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder: (context, error, stackTrace) => Center(
+                        ? InteractiveCropView(
+                            imagePath: originalPage,
+                            points: _cropPoints[_selectedPageIndex] ?? [
+                              const Offset(0.05, 0.05),
+                              const Offset(0.95, 0.05),
+                              const Offset(0.95, 0.95),
+                              const Offset(0.05, 0.95),
+                            ],
+                            onPointsChanged: (pts) {
+                              setState(() {
+                                _cropPoints[_selectedPageIndex] = pts;
+                              });
+                            },
+                            onDragStateChanged: (pt, dragging) {},
+                          )
+                        : Stack(
+                            children: [
+                              AnimatedRotation(
+                                turns: rotationAngle / 360.0,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                                child: currentPage.isNotEmpty
+                                    ? ColorFiltered(
+                                        colorFilter: ColorFilter.matrix(
+                                          _getColorMatrix(saturation, contrast),
+                                        ),
+                                        child: Image.file(
+                                          File(currentPage),
+                                          key: ValueKey(currentPage),
+                                          fit: BoxFit.contain,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (context, error, stackTrace) => Center(
+                                            child: Text(
+                                              'Unable to load this page image.',
+                                              textAlign: TextAlign.center,
+                                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
                                         child: Text(
-                                          'Unable to load this page image.',
+                                          'Scan your first page to preview it here.',
                                           textAlign: TextAlign.center,
-                                          style: theme.textTheme.bodyMedium,
+                                          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
                                         ),
                                       ),
-                                    ),
-                                  )
-                                : Center(
-                                    child: Text(
-                                      'Scan your first page to preview it here.',
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyMedium,
-                                    ),
+                              ),
+                              if (activeFilter != AppConstants.filterOriginal)
+                                Positioned(
+                                  bottom: 8,
+                                  right: 8,
+                                  child: FloatingActionButton.small(
+                                    heroTag: 'apply_to_all_btn',
+                                    backgroundColor: const Color(0xFF222222).withValues(alpha: 0.8),
+                                    onPressed: () {
+                                      setState(() {
+                                        final currentFilter = _pageFilters[_selectedPageIndex] ?? AppConstants.filterOriginal;
+                                        final currentIntensity = _pageFilterIntensities[_selectedPageIndex] ?? 1.0;
+                                        for (int i = 0; i < _originalPaths.length; i++) {
+                                          _pageFilters[i] = currentFilter;
+                                          _pageFilterIntensities[i] = currentIntensity;
+                                        }
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Applied to all pages')),
+                                      );
+                                    },
+                                    tooltip: 'Apply to All',
+                                    child: const Icon(Icons.done_all, color: Colors.white, size: 20),
                                   ),
+                                ),
+                            ],
                           ),
-                        ),
                 ),
               ),
             ),
-
-            if (_displayPaths.isNotEmpty)
+            
+            // Pagination slider
+            if (!_isCropping && _displayPaths.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Page ${_selectedPageIndex + 1} of ${_displayPaths.length}',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          _isCropping ? 'Drag the corners to fit the document' : 'Preview of your captured pages',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppConstants.spacingS),
                     Text(
-                      _isCropping
-                          ? 'Use Auto Crop to snap to paper edges. Pointers are clamped inside the boundary.'
-                          : 'Rotate, crop, and apply shadow-removal filters for a professional result.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      'Page ${_selectedPageIndex + 1} of ${_displayPaths.length}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.touch_app_rounded, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Long press to reorder',
+                      style: theme.textTheme.labelSmall?.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
               ),
-            const SizedBox(height: AppConstants.spacingS),
-
-            // Pagination slider (only in editor mode)
-            if (!_isCropping && _displayPaths.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
-                    child: Row(
-                      children: [
-                        Icon(Icons.touch_app_rounded, size: 16, color: theme.colorScheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Long press to drag and reorder pages',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
+              const SizedBox(height: AppConstants.spacingS),
+              SizedBox(
+                height: 72,
+                child: ReorderableListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
+                  itemCount: _displayPaths.length,
+                  onReorderItem: _onReorderPages,
+                  proxyDecorator: (child, index, animation) {
+                    return Material(
+                      elevation: 8,
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusS),
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (context, index) {
+                    final path = _displayPaths[index];
+                    final selected = index == _selectedPageIndex;
+                    return _AnimatedCard(
+                      key: ValueKey(path),
+                      onTap: () => setState(() => _selectedPageIndex = index),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: AppConstants.spacingS),
+                        child: Container(
+                          width: 56,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusS),
+                            border: Border.all(
+                              color: selected ? const Color(0xFF0066FF) : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spacingS),
-                  SizedBox(
-                    height: 96,
-                    child: ReorderableListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
-                      itemCount: _displayPaths.length,
-                      onReorderItem: (oldIndex, newIndex) {
-                        _onReorderPages(oldIndex, newIndex);
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          elevation: 8,
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                          child: child,
-                        );
-                      },
-                      itemBuilder: (context, index) {
-                        final path = _displayPaths[index];
-                        final selected = index == _selectedPageIndex;
-                        return GestureDetector(
-                          key: ValueKey(path),
-                          onTap: () => setState(() => _selectedPageIndex = index),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: AppConstants.spacingS),
-                            child: Container(
-                              width: 72,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                                border: Border.all(
-                                  color: selected
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.outline.withValues(alpha: 0.25),
-                                  width: selected ? 2 : 1,
-                                ),
-                                color: theme.colorScheme.surface,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                                child: Image.file(
-                                  File(path),
-                                  key: ValueKey('thumb_$path'),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Center(
-                                    child: Icon(Icons.broken_image_outlined),
-                                  ),
-                                ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusS - 2),
+                            child: Image.file(
+                              File(path),
+                              key: ValueKey('thumb_$path'),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_outlined, color: Colors.white),
                               ),
                             ),
                           ),
-                        );
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacingM),
+            ],
+
+            // Filter Carousel
+            if (!_isCropping) ...[
+              if (activeFilter != AppConstants.filterOriginal)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.tune, size: 16, color: Colors.white),
+                      Expanded(
+                        child: Slider(
+                          value: _dragIntensity ?? _pageFilterIntensities[_selectedPageIndex] ?? 1.0,
+                          activeColor: const Color(0xFF0066FF),
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (val) {
+                            setState(() {
+                              _dragIntensity = val;
+                            });
+                          },
+                          onChangeEnd: (val) {
+                            setState(() {
+                              _pageFilterIntensities[_selectedPageIndex] = val;
+                              _dragIntensity = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const SizedBox(height: 48),
+
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
+                  itemCount: 4, // 4 core filters
+                  itemBuilder: (context, index) {
+                    final coreFilters = [
+                      AppConstants.filterOriginal,
+                      AppConstants.filterGrayscale,
+                      AppConstants.filterHighContrast,
+                      AppConstants.filterBlackAndWhite,
+                    ];
+                    final filter = coreFilters[index];
+                    final isSelected = filter == activeFilter;
+                    return _AnimatedCard(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _pageFilters[_selectedPageIndex] = filter;
+                        });
                       },
+                      child: Container(
+                        width: 80,
+                        margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFF222222),
+                              ),
+                              child: Icon(
+                                _getFilterIcon(filter),
+                                color: isSelected ? Colors.white : const Color(0xFF6C757D),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              filter,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFF6C757D),
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacingL),
+            ],
+
+            // Bottom Toolbar (Cancel, Rotate, Apply)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppConstants.spacingL, 0, AppConstants.spacingL, AppConstants.spacingL),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      if (_isCropping) {
+                        setState(() => _isCropping = false);
+                      } else {
+                        context.pop();
+                      }
+                    },
+                    child: const Text('Cancel', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.rotate_right, color: Colors.white),
+                    onPressed: _rotateImage,
+                    tooltip: 'Rotate',
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      if (_isCropping) {
+                        _applyCropWarp();
+                      } else {
+                        _applyEditsAndProceed();
+                      }
+                    },
+                    child: const Text(
+                      'Apply & Continue',
+                      style: TextStyle(color: Color(0xFF0066FF), fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
               ),
-            const SizedBox(height: AppConstants.spacingM),
-
-            // Crop Toolbar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _isCropping
-                    ? [
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.auto_fix_high),
-                          label: const Text('Auto Snap'),
-                          onPressed: _autoCropCurrentPage,
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                            ),
-                            minimumSize: const Size(150, 48),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Reset'),
-                          onPressed: _resetCrop,
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                            ),
-                            minimumSize: const Size(150, 48),
-                          ),
-                        ),
-                      ]
-                    : [
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.crop_free),
-                          label: const Text('Manual Crop'),
-                          onPressed: _enterCroppingMode,
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                            ),
-                            minimumSize: const Size(132, 48),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.auto_fix_high),
-                          label: const Text('Auto Snap'),
-                          onPressed: () async {
-                            await _enterCroppingMode();
-                            await _autoCropCurrentPage();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                            ),
-                            minimumSize: const Size(132, 48),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.rotate_right),
-                          label: const Text('Rotate'),
-                          onPressed: _rotateImage,
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                            ),
-                            minimumSize: const Size(120, 48),
-                          ),
-                        ),
-                      ],
-              ),
             ),
-            const SizedBox(height: AppConstants.spacingXL),
-
-            // Bottom Filter Selection Slider (only in editor mode)
-            if (!_isCropping)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: AppConstants.spacingM),
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Filters',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          Tooltip(
-                            message: 'Apply current filter and intensity to all pages',
-                            child: TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  final currentFilter = _pageFilters[_selectedPageIndex] ?? AppConstants.filterOriginal;
-                                  final currentIntensity = _pageFilterIntensities[_selectedPageIndex] ?? 1.0;
-                                  for (int i = 0; i < _originalPaths.length; i++) {
-                                    _pageFilters[i] = currentFilter;
-                                    _pageFilterIntensities[i] = currentIntensity;
-                                  }
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Applied to all pages')),
-                                );
-                              },
-                              icon: const Icon(Icons.done_all, size: 18),
-                              label: const Text('Apply to All'),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                minimumSize: const Size(0, 32),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (activeFilter != AppConstants.filterOriginal)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
-                        child: Row(
-                          children: [
-                            Icon(Icons.tune, size: 18, color: theme.colorScheme.primary),
-                            Expanded(
-                              child: Slider(
-                                value: _dragIntensity ?? _pageFilterIntensities[_selectedPageIndex] ?? 1.0,
-                                min: 0.0,
-                                max: 1.0,
-                                divisions: 20,
-                                label: '${((_dragIntensity ?? _pageFilterIntensities[_selectedPageIndex] ?? 1.0) * 100).round()}%',
-                                onChanged: (val) {
-                                  setState(() {
-                                    _dragIntensity = val;
-                                  });
-                                },
-                                onChangeEnd: (val) {
-                                  setState(() {
-                                    _pageFilterIntensities[_selectedPageIndex] = val;
-                                    _dragIntensity = null;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      const SizedBox(height: AppConstants.spacingS),
-                    SizedBox(
-                      height: 80,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
-                        itemCount: AppConstants.availableFilters.length,
-                        itemBuilder: (context, index) {
-                          final filter = AppConstants.availableFilters[index];
-                          final isSelected = filter == activeFilter;
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _pageFilters[_selectedPageIndex] = filter;
-                              });
-                            },
-                            child: Container(
-                              width: 100,
-                              margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? theme.colorScheme.primaryContainer
-                                    : theme.colorScheme.surface,
-                                borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.outline.withValues(alpha: 0.2),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _getFilterIcon(filter),
-                                    color: isSelected
-                                        ? theme.colorScheme.onPrimaryContainer
-                                        : theme.colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    filter,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected
-                                          ? theme.colorScheme.onPrimaryContainer
-                                          : theme.colorScheme.onSurface,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
@@ -1367,4 +1255,39 @@ class DocumentCropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DocumentCropPainter oldDelegate) => true;
+}
+
+class _AnimatedCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _AnimatedCard({super.key, required this.child, required this.onTap});
+
+  @override
+  State<_AnimatedCard> createState() => _AnimatedCardState();
+}
+
+class _AnimatedCardState extends State<_AnimatedCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.selectionClick();
+        setState(() => _isPressed = true);
+      },
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
 }

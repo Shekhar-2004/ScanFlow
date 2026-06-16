@@ -1,5 +1,456 @@
-I need these improvements
-1. The app is faster but not fast enough, you know, if the process is going on let say, pseudo success message will be good, build the pdf in background so that user dont feel like the app is hanging.
-2. When the procss of making the pdf in the pdf preview is done then we will see the green success sign and options to download or share or save it as jpeg.
-3. In the edit preview window I want a button which applies the same filter to all the pages at once but at the bottom right corner not in the bottom center. Seamless in UI integration.
-4. I want filter intensity slider that doesnt make the app slow because continuous process will crash the app. I want this upadte to be crash proof and swift and fast.
+# ScanFlow Quality Improvement Requirements
+
+## Mandatory Enhancements Before Production Release
+
+### Purpose
+
+The current enhancement pipeline produces readable output but still resembles a heavily processed photograph rather than a professional document scan.
+
+The objective of this section is to define the remaining improvements required to achieve Adobe Scan–level document quality.
+
+---
+
+# Current Quality Problems
+
+The existing implementation exhibits the following issues:
+
+## Problem 1 — Background Is Not Pure White
+
+Current behavior:
+
+* Paper remains gray
+* Background remains uneven
+* White regions are not normalized
+
+Result:
+
+Documents appear photographed rather than scanned.
+
+Required improvement:
+
+Implement adaptive background whitening.
+
+Target result:
+
+Paper should appear:
+
+```text
+RGB(245-255)
+```
+
+across the majority of the page while preserving handwriting and printed text.
+
+---
+
+## Problem 2 — Noise Amplification
+
+Current behavior:
+
+The enhancement pipeline increases visibility of:
+
+* Camera sensor noise
+* Paper texture
+* Dust artifacts
+* Edge grain
+
+Result:
+
+Documents contain random black speckles.
+
+Required improvement:
+
+Add pre-threshold denoising.
+
+Recommended:
+
+```text
+Fast Non Local Means
+```
+
+or
+
+```text
+Bilateral Filter
+```
+
+Requirements:
+
+* Preserve text edges
+* Remove isolated noise pixels
+* Do not blur handwriting
+
+---
+
+## Problem 3 — Foreground and Background Separation Is Weak
+
+Current behavior:
+
+Everything is enhanced equally.
+
+Enhanced:
+
+* Text
+* Shadows
+* Noise
+* Paper texture
+* Notebook lines
+
+Result:
+
+The scan appears cluttered.
+
+Required improvement:
+
+Create explicit foreground/background separation.
+
+The system must distinguish:
+
+Foreground:
+
+* Handwriting
+* Printed text
+* Important document markings
+
+Background:
+
+* Paper texture
+* Noise
+* Lighting variation
+* Shadows
+
+Only foreground content should receive aggressive enhancement.
+
+---
+
+## Problem 4 — Incomplete Shadow Removal
+
+Current behavior:
+
+Uneven lighting remains visible.
+
+Dark areas remain darker.
+
+Result:
+
+Page brightness is inconsistent.
+
+Required improvement:
+
+Implement illumination field estimation.
+
+Suggested approach:
+
+Large Gaussian Blur:
+
+```text
+Kernel Size:
+101x101
+```
+
+or larger depending on image resolution.
+
+Perform:
+
+```text
+Normalized Image
+=
+Original Image
+÷
+Illumination Map
+```
+
+Goal:
+
+Uniform page brightness.
+
+---
+
+## Problem 5 — Edge Contamination
+
+Current behavior:
+
+Page borders contain:
+
+* Black dots
+* Noise
+* Dirty edge artifacts
+
+Result:
+
+The document appears low quality.
+
+Required improvement:
+
+Implement border cleanup.
+
+Requirements:
+
+* Detect page boundaries
+* Suppress noise near edges
+* Remove isolated edge artifacts
+
+---
+
+## Problem 6 — Thresholding Remains Too Aggressive
+
+Current behavior:
+
+The output resembles:
+
+* Sketch effect
+* Edge detection
+* Posterization
+
+instead of a scan.
+
+Required improvement:
+
+Replace simplistic threshold logic with:
+
+```text
+Adaptive Gaussian Threshold
+```
+
+Parameters:
+
+```text
+Block Size: 21
+Constant: 11
+```
+
+No fixed thresholding allowed.
+
+---
+
+## Problem 7 — Missing Morphological Cleanup
+
+Current behavior:
+
+Small artifacts survive thresholding.
+
+Result:
+
+Speckles remain visible.
+
+Required improvement:
+
+Apply:
+
+### Opening
+
+Kernel:
+
+```text
+3x3
+```
+
+Iterations:
+
+```text
+1
+```
+
+Purpose:
+
+Remove isolated black pixels.
+
+---
+
+### Closing
+
+Kernel:
+
+```text
+3x3
+```
+
+Iterations:
+
+```text
+1
+```
+
+Purpose:
+
+Repair broken text strokes.
+
+---
+
+## Problem 8 — Text Preservation Needs Improvement
+
+Current behavior:
+
+Thin handwriting occasionally weakens.
+
+Required improvement:
+
+Implement text-aware sharpening.
+
+Requirements:
+
+Preserve:
+
+* Handwriting
+* Signatures
+* Small characters
+* Fine strokes
+
+Avoid:
+
+* Halo artifacts
+* Over-sharpening
+
+---
+
+## Problem 9 — Notebook Paper Handling
+
+Current behavior:
+
+Notebook lines become overly dominant.
+
+Required improvement:
+
+Reduce notebook line prominence.
+
+Requirements:
+
+* Keep notebook structure visible
+* Prioritize actual handwriting
+* Prevent notebook lines from competing with text
+
+---
+
+## Problem 10 — Book Curvature Remains Visible
+
+Observed in notebook scans.
+
+Current behavior:
+
+Center fold remains curved.
+
+Required improvement:
+
+Implement page dewarping.
+
+Goal:
+
+Convert:
+
+```text
+Curved Notebook Page
+```
+
+into:
+
+```text
+Flat Scanned Page
+```
+
+Methods:
+
+* Mesh Warp
+* Page Dewarp
+* Book Flattening Algorithm
+
+Priority:
+
+Medium
+
+Can be implemented after core scan quality improvements.
+
+---
+
+# Document Detection System
+
+Current implementation appears to process all images identically.
+
+This is incorrect.
+
+---
+
+## Required Classification Layer
+
+Before enhancement:
+
+Classify image.
+
+### Document Mode
+
+Triggered when:
+
+* Notebook
+* Receipt
+* Invoice
+* Printed Page
+* Handwritten Notes
+
+Detected.
+
+Apply:
+
+Full document enhancement pipeline.
+
+---
+
+### Photo Mode
+
+Triggered when:
+
+* Shoes
+* People
+* Objects
+* Landscapes
+* General photography
+
+Detected.
+
+Apply:
+
+Photo enhancement pipeline.
+
+Do not apply document thresholding.
+
+---
+
+# Target Scan Quality
+
+The final output should resemble:
+
+* Adobe Scan Enhanced
+* Microsoft Lens Document Mode
+* Notebloc Premium Scan
+
+The output must not resemble:
+
+* Edge detection filter
+* Sketch filter
+* Posterized image
+* Thresholded photograph
+
+---
+
+# Acceptance Criteria
+
+Every processed document must satisfy:
+
+✓ White background
+
+✓ Uniform brightness
+
+✓ Sharp text
+
+✓ No visible shadows
+
+✓ No corner noise
+
+✓ No random black dots
+
+✓ Preserved handwriting
+
+✓ Preserved signatures
+
+✓ Minimal notebook line dominance
+
+✓ Professional scan appearance
+
+Only when all criteria are met should the enhancement pipeline be considered production-ready.

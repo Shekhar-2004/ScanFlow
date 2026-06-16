@@ -80,96 +80,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
-        actions: [
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            tooltip: 'Toggle Theme',
-            onPressed: widget.onToggleTheme,
-          ),
-        ],
+        // Removed settings/profile/theme icons per specification
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _AnimatedCTA(
+        onPressed: () async {
+          DocumentSession.instance.reset();
+          await context.push(AppConstants.routeScanner);
+          if (mounted) {
+            _loadRecentDocuments();
+          }
+        },
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacingL),
+          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL, vertical: AppConstants.spacingS),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // New Scan card
-              InkWell(
-                borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                onTap: () async {
-                  DocumentSession.instance.reset();
-                  await context.push(AppConstants.routeScanner);
-                  if (mounted) {
-                    _loadRecentDocuments();
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppConstants.spacingXL),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppConstants.spacingM),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.camera_alt_rounded,
-                          color: theme.colorScheme.onPrimary,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.spacingL),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Scan',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: AppConstants.spacingXS),
-                            Text(
-                              'Capture, crop, and export a professional PDF in seconds.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.9),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingXL),
-
-              // Recent Documents Section
               Text(
                 'Recent Documents',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: theme.textTheme.titleLarge,
               ),
-              const SizedBox(height: AppConstants.spacingS),
-
+              const SizedBox(height: AppConstants.spacingM),
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -178,24 +111,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.document_scanner_outlined,
+                            const Icon(
+                              Icons.description_outlined,
                               size: 64,
-                              color: theme.colorScheme.outline.withValues(alpha: 0.5),
+                              color: Color(0xFFE5E5EA),
                             ),
                             const SizedBox(height: AppConstants.spacingM),
                             Text(
-                              'No scanned documents yet.',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.outline,
-                              ),
+                              'No Scanned Documents',
+                              style: theme.textTheme.titleMedium,
                             ),
-                            const SizedBox(height: AppConstants.spacingS),
+                            const SizedBox(height: AppConstants.spacingXS),
                             Text(
-                              'Tap New Scan to create your first document.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.outline,
-                              ),
+                              'Your captured items will appear here securely.',
+                              style: theme.textTheme.bodySmall,
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -233,8 +162,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             background: Container(
                               margin: const EdgeInsets.only(bottom: AppConstants.spacingM),
                               decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                                color: const Color(0xFFFF3B30),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: AppConstants.spacingL),
@@ -255,53 +184,156 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 );
                               }
                             },
-                            child: Card(
-                              margin: const EdgeInsets.only(bottom: AppConstants.spacingM),
-                              child: ListTile(
-                                leading: Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                  ),
-                                  child: Icon(
-                                    Icons.picture_as_pdf_rounded,
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
+                            child: _AnimatedCard(
+                              onTap: () async {
+                                await context.push(
+                                  AppConstants.routePdfViewer,
+                                  extra: doc.path,
+                                );
+                                if (mounted) {
+                                  _loadRecentDocuments();
+                                }
+                              },
+                              child: Container(
+                                height: 72,
+                                margin: const EdgeInsets.only(bottom: AppConstants.spacingM),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFE5E5EA), width: 1),
                                 ),
-                                title: Text(
-                                  fileName,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primaryContainer,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.picture_as_pdf_rounded,
+                                        color: theme.colorScheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            fileName,
+                                            style: theme.textTheme.titleMedium,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${modified.toLocal().toString().split('.').first} • PDF',
+                                            style: theme.textTheme.labelMedium,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                subtitle: Text(
-                                  '${modified.toLocal().toString().split('.').first} • PDF',
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                trailing: Icon(
-                                  Icons.chevron_right,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                 onTap: () async {
-                                  await context.push(
-                                    AppConstants.routePdfViewer,
-                                    extra: doc.path,
-                                  );
-                                  if (mounted) {
-                                    _loadRecentDocuments();
-                                  }
-                                },
                               ),
                             ),
                           );
                         },
                       ),
               ),
-
-              const SizedBox(height: AppConstants.spacingM),
+              const SizedBox(height: 80), // Padding for Floating CTA
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AnimatedCTA extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _AnimatedCTA({required this.onPressed});
+
+  @override
+  State<_AnimatedCTA> createState() => _AnimatedCTAState();
+}
+
+class _AnimatedCTAState extends State<_AnimatedCTA> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onPressed();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          width: 180,
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0066FF),
+            borderRadius: BorderRadius.circular(27),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'New Scan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _AnimatedCard({required this.child, required this.onTap});
+
+  @override
+  State<_AnimatedCard> createState() => _AnimatedCardState();
+}
+
+class _AnimatedCardState extends State<_AnimatedCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
       ),
     );
   }

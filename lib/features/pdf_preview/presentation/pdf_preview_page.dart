@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   bool _isSaved = false;
   bool _isGenerating = false;
   String _generatedPdfPath = '';
+  Completer<String>? _pdfCompleter;
 
   @override
   void initState() {
@@ -104,55 +106,74 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         ? widget.imagePaths
         : DocumentSession.instance.pages;
 
+    if (_isGenerating || _isSaved) return;
+
     setState(() {
       _isGenerating = true;
+      _isSaved = true; // Pseudo success
     });
+
+    _pdfCompleter = Completer<String>();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Document saving in background...'),
+        backgroundColor: Colors.green,
+      ),
+    );
 
     try {
       PdfUtils.validatePageCount(pages);
 
-      final file = await PdfUtils.generatePdf(
+      final name = _nameController.text.trim().isEmpty
+          ? 'ScanFlow_Document'
+          : _nameController.text.trim();
+
+      PdfUtils.generatePdf(
         imagePaths: pages,
-        documentName: _nameController.text.trim().isEmpty
-            ? 'ScanFlow_Document'
-            : _nameController.text.trim(),
-      );
-
-      if (!mounted || !context.mounted) return;
-
-      setState(() {
-        _generatedPdfPath = file.path;
-        _isSaved = true;
+        documentName: name,
+      ).then((file) {
+        if (mounted) {
+          setState(() {
+            _generatedPdfPath = file.path;
+            _isGenerating = false;
+          });
+          DocumentSession.instance.notifyDocumentsChanged();
+          _pdfCompleter?.complete(file.path);
+        }
+      }).catchError((error) {
+        if (mounted) {
+          setState(() {
+            _isGenerating = false;
+            _isSaved = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Unable to save PDF: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          _pdfCompleter?.completeError(error);
+        }
       });
-
-      DocumentSession.instance.notifyDocumentsChanged();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Document saved to ${file.path}'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (error) {
-      if (!mounted || !context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to save PDF: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
       if (mounted) {
         setState(() {
           _isGenerating = false;
+          _isSaved = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to start save: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final pages = widget.imagePaths.isNotEmpty
         ? widget.imagePaths
         : DocumentSession.instance.pages;
@@ -166,10 +187,13 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFFF2F2F7), // Apple Notes Light Grey
         appBar: AppBar(
-          title: const Text('PDF Preview'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text('PDF Preview', style: TextStyle(color: Colors.black)),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
             onPressed: () {
               if (_isSaved) {
                 context.go(AppConstants.routeHome);
@@ -178,213 +202,175 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               }
             },
           ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onSelected: (value) async {
+                if (value == 'jpeg') {
+                  await _saveAsJpeg();
+                } else if (value == 'home') {
+                  context.go(AppConstants.routeHome);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'jpeg', child: Text('Save as JPEG')),
+                const PopupMenuItem(value: 'home', child: Text('Go to Home')),
+              ],
+            ),
+          ],
         ),
         body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.spacingL),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Rename Input Field
-              Text(
-                'Document Name',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingS),
-              Text(
-                'Use a clear name so the PDF is easy to find later in Recent Documents.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingS),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'Enter document name',
-                  suffixText: '.pdf',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () => _nameController.clear(),
+              // Filename Card
+              Padding(
+                padding: const EdgeInsets.all(AppConstants.spacingL),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf, color: Colors.red[700]),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                      ),
+                      const Icon(Icons.edit, color: Colors.grey, size: 20),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: AppConstants.spacingXL),
 
-              // PDF Preview Container
-              Text(
-                'Page Preview (${pages.length} page${pages.length == 1 ? '' : 's'})',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingS),
-              Container(
-                height: 380,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 1 / 1.4142, // A4 aspect ratio
-                    child: Container(
-                      margin: const EdgeInsets.all(AppConstants.spacingL),
-                      color: Colors.white,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.red[700],
-                            size: 60,
-                          ),
-                          const SizedBox(height: AppConstants.spacingM),
-                          Text(
-                            'ScanFlow Document',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: AppConstants.spacingS),
-                          Text(
-                            'Size: generated locally on save',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: AppConstants.spacingS),
-                          Text(
-                            pages.isEmpty
-                                ? 'Add at least one page before creating a PDF.'
-                                : 'Ready to save ${pages.length} page${pages.length == 1 ? '' : 's'} offline.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[700],
-                            ),
-                            textAlign: TextAlign.center,
+              // Document Preview (Single continuous scroll)
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL, vertical: AppConstants.spacingS),
+                  itemCount: pages.length,
+                  itemBuilder: (context, index) {
+                    final path = pages[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: AppConstants.spacingL),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ),
-                  ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(path),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox(
+                            height: 200,
+                            child: Center(child: Icon(Icons.broken_image)),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: AppConstants.spacingXXL),
 
-              // Action Buttons
-              Column(
-                children: [
-                  ElevatedButton.icon(
-                    icon: _isGenerating 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Icon(_isSaved ? Icons.check_circle : Icons.save_alt),
-                    label: Text(_isGenerating ? 'Processing in Background...' : (_isSaved ? 'SAVED SUCCESSFULLY' : 'SAVE DOCUMENT')),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 56),
-                      backgroundColor: _isSaved ? Colors.green : theme.colorScheme.primary,
-                      foregroundColor: _isSaved ? Colors.white : theme.colorScheme.onPrimary,
-                      elevation: _isSaved || _isGenerating ? 0 : 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              // Bottom Actions
+              Container(
+                padding: const EdgeInsets.all(AppConstants.spacingL),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E5EA))),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    children: [
+                      // Share Button (Blue)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (!_isSaved) {
+                              await _saveDocument();
+                            }
+                            if (_isGenerating && _pdfCompleter != null) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Waiting for PDF to finish generating...')),
+                              );
+                              try {
+                                await _pdfCompleter!.future;
+                              } catch (e) {
+                                return;
+                              }
+                            }
+                            if (_isSaved && context.mounted) {
+                              context.push(AppConstants.routeShare, extra: _generatedPdfPath);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066FF),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isGenerating 
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('Share', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
                       ),
-                    ),
-                    onPressed: (_isSaved || _isGenerating) ? null : _saveDocument,
+                      const SizedBox(width: AppConstants.spacingM),
+                      // Save to Files Button (Grey)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (!_isSaved) {
+                              await _saveDocument();
+                            }
+                            if (_isGenerating && _pdfCompleter != null) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Waiting for PDF to finish generating...')),
+                              );
+                              try {
+                                await _pdfCompleter!.future;
+                              } catch (e) {
+                                return;
+                              }
+                            }
+                            await _downloadPdf();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE5E5EA),
+                            foregroundColor: Colors.black87,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text('Save to Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppConstants.spacingM),
-                  
-                  if (_isSaved)
-                    Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.share_rounded),
-                                label: const Text('SHARE'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 56),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  context.push(
-                                    AppConstants.routeShare,
-                                    extra: _generatedPdfPath,
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: AppConstants.spacingM),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.home_rounded),
-                                label: const Text('HOME'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 56),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  context.go(AppConstants.routeHome);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppConstants.spacingM),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.download_rounded),
-                                label: const Text('DOWNLOAD'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 56),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                  ),
-                                ),
-                                onPressed: _downloadPdf,
-                              ),
-                            ),
-                            const SizedBox(width: AppConstants.spacingM),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.image_rounded),
-                                label: const Text('SAVE JPEG'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 56),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                  ),
-                                ),
-                                onPressed: _saveAsJpeg,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                ],
+                ),
               ),
             ],
           ),
         ),
       ),
-    ));
+    );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:scan_first/core/utils/pdf_utils.dart';
+import 'package:scanflow/core/utils/pdf_utils.dart';
 
 void main() {
   group('PdfUtils', () {

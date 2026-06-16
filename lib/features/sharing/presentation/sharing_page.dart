@@ -16,7 +16,6 @@ class SharingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final fileName = pdfPath.split('/').last;
     final file = File(pdfPath);
     final fileExists = file.existsSync();
@@ -29,163 +28,148 @@ class SharingPage extends StatelessWidget {
         context.go(AppConstants.routeHome);
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Share Document'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              context.go(AppConstants.routeHome);
-            },
-          ),
-        ),
-        body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacingL),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Success Header
-              // Premium File Representation
-              Center(
-                child: Container(
-                  height: 160,
-                  width: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
+        backgroundColor: Colors.black.withValues(alpha: 0.5), // Semi-transparent backdrop
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            GestureDetector(
+              onTap: () => context.go(AppConstants.routeHome),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.3,
+                color: Colors.transparent,
+              ),
+            ),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SafeArea(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.picture_as_pdf_rounded, size: 64, color: Colors.red[700]),
+                      const SizedBox(height: 12),
+                      // Drag Handle
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Title
+                      const Text(
+                        'Share Document',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // File Info Block
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F9FA),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.picture_as_pdf, color: Colors.red[700], size: 40),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      fileName,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$fileSize • PDF Document',
+                                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Bottom Toolbar: Grid of Share Targets (Simulated as elevated button for native share sheet + home)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.share),
+                                label: const Text('Share Options', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                                onPressed: () async {
+                                  if (!fileExists) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('The PDF file could not be found.')),
+                                    );
+                                    return;
+                                  }
+
+                                  await SharePlus.instance.share(
+                                    ShareParams(
+                                      files: [XFile(pdfPath)],
+                                      text: 'Here is the scanned PDF.',
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0066FF),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 16),
-                      Text(
-                        'PDF Document',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.grey[800],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  context.go(AppConstants.routeHome);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
+                              ),
+                            ),
+                          ],
                         ),
-                        textAlign: TextAlign.center,
                       ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: AppConstants.spacingXL),
-
-              // File Information Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConstants.spacingL),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'FILE INFORMATION',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: AppConstants.spacingM),
-                      _buildInfoRow(context, 'File Name', fileName),
-                      const Divider(height: 24),
-                      _buildInfoRow(context, 'Format', 'PDF (A4 Document)'),
-                      const Divider(height: 24),
-                      _buildInfoRow(context, 'File Size', fileSize),
-                      const Divider(height: 24),
-                      _buildInfoRow(context, 'Storage Location', fileExists ? pdfPath : 'Saved locally once generated'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingXL),
-
-              Text(
-                'Share using the Android system sheet',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacingS),
-              Text(
-                'This opens the standard Android share dialog so you can send the PDF to any app.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppConstants.spacingXL),
-
-              ElevatedButton.icon(
-                icon: const Icon(Icons.share),
-                label: const Text('SHARE PDF'),
-                onPressed: () async {
-                  if (!fileExists) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('The PDF file could not be found. Save it first.')),
-                    );
-                    return;
-                  }
-
-                  await SharePlus.instance.share(
-                    ShareParams(
-                      files: [XFile(pdfPath)],
-                      text: 'Here is the scanned PDF generated by ScanFirst.',
-                    ),
-                  );
-                },
-              ),
-              const Spacer(),
-
-              // Done Button
-              OutlinedButton.icon(
-                icon: const Icon(Icons.home),
-                label: const Text('BACK TO HOME'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  ),
-                ),
-                onPressed: () {
-                  // Navigate back to home and clear history stack
-                  context.go(AppConstants.routeHome);
-                },
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    ),
-  );
-}
-
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-        ),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 

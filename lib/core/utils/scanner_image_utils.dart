@@ -35,7 +35,7 @@ class DocumentBounds {
 class ScannerImageUtils {
   static const int _backgroundThreshold = 245;
   static const int _padding = 8;
-  static const int _maxDimension = 2400;
+  static const int _maxDimension = 2480;
 
   // Preserved for backward compatibility / tests
   static DocumentBounds? detectDocumentBounds(img.Image image) {
@@ -85,7 +85,7 @@ class ScannerImageUtils {
       bytes,
       minWidth: _maxDimension,
       minHeight: _maxDimension,
-      quality: 85,
+      quality: 92,
     );
     
     return compressedBytes;
@@ -527,14 +527,56 @@ class ScannerImageUtils {
 
   static img.Image applyBlackAndWhiteFilter(img.Image src, {double intensity = 1.0}) {
     if (intensity <= 0.0) return src.clone();
-    final dest = img.Image(width: src.width, height: src.height);
-    
-    for (var y = 0; y < src.height; y++) {
-      for (var x = 0; x < src.width; x++) {
+    final int width = src.width;
+    final int height = src.height;
+    final dest = img.Image(width: width, height: height);
+
+    // Compute luminance map
+    final lums = Float32List(width * height);
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
         final p = src.getPixel(x, y);
-        
-        final double lum = 0.2126 * p.r + 0.7152 * p.g + 0.0722 * p.b;
-        final int val = lum > 128 ? 255 : 0;
+        lums[y * width + x] = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+      }
+    }
+
+    // Compute Integral Image for fast Adaptive Thresholding
+    final integral = Float64List((width + 1) * (height + 1));
+    for (var y = 0; y < height; y++) {
+      var rowSum = 0.0;
+      for (var x = 0; x < width; x++) {
+        rowSum += lums[y * width + x];
+        integral[(y + 1) * (width + 1) + (x + 1)] = integral[y * (width + 1) + (x + 1)] + rowSum;
+      }
+    }
+
+    double getWindowSum(int x1, int y1, int x2, int y2) {
+      final int idxA = y1 * (width + 1) + x1;
+      final int idxB = y1 * (width + 1) + (x2 + 1);
+      final int idxC = (y2 + 1) * (width + 1) + x1;
+      final int idxD = (y2 + 1) * (width + 1) + (x2 + 1);
+      return integral[idxD] - integral[idxB] - integral[idxC] + integral[idxA];
+    }
+
+    // Adaptive Gaussian Threshold equivalent (Block Size 21, Constant 11)
+    // We use a mean filter approximation for speed since true Gaussian is slow
+    const int rRadius = 10; // 21 block size roughly corresponds to 10 radius
+    const double C = 11.0; 
+
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final double lum = lums[y * width + x];
+
+        final x1 = (x - rRadius).clamp(0, width - 1);
+        final y1 = (y - rRadius).clamp(0, height - 1);
+        final x2 = (x + rRadius).clamp(0, width - 1);
+        final y2 = (y + rRadius).clamp(0, height - 1);
+
+        final double count = (x2 - x1 + 1) * (y2 - y1 + 1).toDouble();
+        final double sum = getWindowSum(x1, y1, x2, y2);
+        final double mean = sum / count;
+
+        final int val = lum > (mean - C) ? 255 : 0;
         
         if (intensity < 1.0) {
           final iv = (val * intensity + lum * (1.0 - intensity)).round();
