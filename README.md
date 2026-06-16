@@ -1,6 +1,7 @@
 # ScanFlow
 
 A lightweight, offline-first document scanner focused on speed, simplicity, privacy, and excellent user experience.
+Low-end device apk : https://drive.google.com/file/d/1CGOrY515IbupaefpgbACrgS8P2mnuOjY/view?usp=sharing
 
 ## Vision
 
