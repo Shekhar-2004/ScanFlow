@@ -1,0 +1,5 @@
+I need these improvements
+1. The app is faster but not fast enough, you know, if the process is going on let say, pseudo success message will be good, build the pdf in background so that user dont feel like the app is hanging.
+2. When the procss of making the pdf in the pdf preview is done then we will see the green success sign and options to download or share or save it as jpeg.
+3. In the edit preview window I want a button which applies the same filter to all the pages at once but at the bottom right corner not in the bottom center. Seamless in UI integration.
+4. I want filter intensity slider that doesnt make the app slow because continuous process will crash the app. I want this upadte to be crash proof and swift and fast.

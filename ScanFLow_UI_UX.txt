@@ -1,0 +1,1066 @@
+# ScanFlow — AI Implementation Contract (MANDATORY)
+
+## Critical Directive
+
+This document is a UI/UX enhancement specification only.
+
+You are NOT authorized to redesign, refactor, restructure, optimize, simplify, replace, remove, merge, rename, or alter any existing application logic, workflows, navigation architecture, processing pipelines, state management, data flow, business rules, storage mechanisms, routing behavior, scanner functionality, image processing functionality, PDF generation functionality, sharing functionality, or feature architecture.
+
+Your responsibility is strictly limited to improving the visual presentation and user experience while preserving 100% functional parity.
+
+---
+
+# Non-Negotiable Rule
+
+If a requested UI improvement requires modifying application logic, feature behavior, workflow sequence, route structure, processing pipeline, or architectural flow:
+
+DO NOT IMPLEMENT IT.
+
+Instead:
+
+1. Preserve the existing implementation.
+2. Improve only the visual layer.
+3. Keep all functionality operating exactly as before.
+
+The application must behave identically before and after UI improvements.
+
+---
+
+# Absolute Preservation Requirements
+
+The following components are immutable and must never be changed:
+
+## Navigation Flow
+
+Preserve all route names.
+
+Preserve all route destinations.
+
+Preserve all route arguments.
+
+Preserve all route transitions.
+
+Preserve all screen entry and exit behavior.
+
+Preserve the complete user journey:
+
+Home
+→ Scanner
+→ Editor
+→ Preview
+→ Save / Share
+
+No additional screens.
+
+No removed screens.
+
+No reordered screens.
+
+No altered navigation logic.
+
+---
+
+## Scanner Workflow
+
+Preserve:
+
+* Camera initialization
+* Camera permissions
+* Capture behavior
+* Flash behavior
+* Image storage behavior
+* Capture timing
+* File creation process
+* Image output paths
+
+Do not replace the scanner implementation.
+
+Do not change capture logic.
+
+Do not alter image generation behavior.
+
+---
+
+## Image Processing Pipeline
+
+Preserve:
+
+* Original filter
+* Grayscale filter
+* High Contrast filter
+* Black & White filter
+
+Preserve:
+
+* Processing sequence
+* Processing thresholds
+* Contrast values
+* Output quality
+* Encoding format
+* Processing architecture
+
+Do not modify algorithms.
+
+Do not introduce AI filters.
+
+Do not introduce new processing methods.
+
+Do not replace image libraries.
+
+---
+
+## PDF Generation Pipeline
+
+Preserve:
+
+* PDF package usage
+* PDF construction flow
+* Page sizing
+* Image placement behavior
+* Export logic
+* Output format
+* File generation process
+
+Do not redesign the PDF architecture.
+
+Do not change PDF generation logic.
+
+---
+
+## Data Layer
+
+Preserve:
+
+* Local storage behavior
+* File persistence behavior
+* Metadata handling
+* Existing repositories
+* Existing services
+* Existing models
+
+No database migrations.
+
+No schema modifications.
+
+No storage refactoring.
+
+---
+
+## Architecture
+
+Preserve:
+
+* Feature-first structure
+* Folder hierarchy
+* Clean architecture boundaries
+* Existing module ownership
+
+Do not:
+
+* Merge features
+* Rename features
+* Move features
+* Reorganize architecture
+
+unless explicitly instructed.
+
+---
+
+## State Management
+
+Preserve the existing state management approach.
+
+Do not migrate to:
+
+* Riverpod
+* Bloc
+* Cubit
+* Provider
+* GetX
+* Redux
+
+unless the project already uses them.
+
+Do not introduce a new state architecture.
+
+---
+
+## Dependencies
+
+Do not:
+
+* Replace packages
+* Swap libraries
+* Introduce alternative frameworks
+
+unless absolutely required for visual implementation and approved explicitly.
+
+---
+
+# Allowed Changes
+
+The following areas may be modified:
+
+## Visual Design
+
+* Colors
+* Typography
+* Radius
+* Borders
+* Shadows
+* Spacing
+* Layout polish
+* Visual hierarchy
+
+## UX Enhancements
+
+* Better touch targets
+* Improved visual feedback
+* Improved loading states
+* Better empty states
+* Better visual grouping
+* Better information hierarchy
+
+## Motion Design
+
+* Micro interactions
+* Press animations
+* Transition polish
+* Visual feedback animations
+
+provided they do not alter behavior.
+
+## Accessibility
+
+* Better contrast
+* Better readability
+* Better spacing
+* Better touch accessibility
+
+provided functionality remains identical.
+
+---
+
+# Forbidden Actions
+
+Never:
+
+* Rewrite working business logic
+* Refactor functioning code unnecessarily
+* Change app behavior
+* Change processing results
+* Change navigation flow
+* Change feature sequencing
+* Remove functionality
+* Add new workflows
+* Introduce new architecture
+* Replace existing implementations
+* Optimize working systems that are not related to UI
+
+If existing code works correctly, leave it untouched.
+
+---
+
+# Implementation Priority Order
+
+When making changes, follow this priority:
+
+1. Preserve functionality.
+2. Preserve architecture.
+3. Preserve workflow.
+4. Preserve processing logic.
+5. Preserve routing.
+6. Improve UI.
+7. Improve UX.
+8. Improve aesthetics.
+
+If a conflict exists between UI improvements and application behavior:
+
+Application behavior always wins.
+
+---
+
+# Success Criteria
+
+A successful implementation means:
+
+* The application behaves exactly the same.
+* All existing features continue working.
+* Scanner output remains identical.
+* PDF output remains identical.
+* Navigation remains identical.
+* Data flow remains identical.
+* Architecture remains identical.
+* Only the visual experience is improved.
+
+Any change that risks functional regression is considered a failed implementation.
+
+END OF CONTRACT.
+
+
+
+
+# ScanFlow UI/UX Master Specification
+
+## Deterministic UI Implementation Guide
+
+### UI Layer Only — Business Logic Must Remain Untouched
+
+---
+
+# CRITICAL IMPLEMENTATION RULE
+
+This document defines ONLY the presentation layer.
+
+Under no circumstances may the following be modified:
+
+* Business Logic
+* Scanner Logic
+* Image Processing Logic
+* PDF Generation Logic
+* Navigation Flow
+* Data Models
+* Storage Layer
+* Feature Architecture
+* Routing Configuration
+
+Any UI improvement must be implemented without changing application behavior.
+
+---
+
+# DESIGN PHILOSOPHY
+
+ScanFlow should feel like:
+
+* Apple Notes
+* Apple Files
+* Apple Scan Documents
+* Linear
+* Arc Browser
+
+Combined together.
+
+Characteristics:
+
+* Minimal
+* Fast
+* Premium
+* Quiet
+* Professional
+* Zero visual clutter
+* Zero decorative elements
+* Content-first
+
+The scanned document is always the hero.
+
+The interface is secondary.
+
+---
+
+# GLOBAL DESIGN TOKENS
+
+## Colors
+
+### Background
+
+```dart
+#F8F9FA
+```
+
+Purpose:
+
+* Primary application background
+
+---
+
+### Surface
+
+```dart
+#FFFFFF
+```
+
+Purpose:
+
+* Cards
+* Sheets
+* Inputs
+* Floating panels
+
+---
+
+### Primary Accent
+
+```dart
+#0066FF
+```
+
+Purpose:
+
+* CTA Buttons
+* Active States
+* Selection Indicators
+
+---
+
+### Dark Workspace
+
+```dart
+#111111
+```
+
+Purpose:
+
+* Scanner Screen
+* Editor Screen
+
+---
+
+### Text Primary
+
+```dart
+#1C1C1E
+```
+
+---
+
+### Text Secondary
+
+```dart
+#6C757D
+```
+
+---
+
+### Border
+
+```dart
+#E5E5EA
+```
+
+---
+
+### Success
+
+```dart
+#34C759
+```
+
+---
+
+### Warning
+
+```dart
+#FF9F0A
+```
+
+---
+
+### Destructive
+
+```dart
+#FF3B30
+```
+
+---
+
+# SPACING SYSTEM
+
+Never use arbitrary spacing.
+
+Allowed values only:
+
+```dart
+4
+8
+12
+16
+20
+24
+32
+40
+48
+64
+```
+
+---
+
+# CORNER RADII
+
+Small
+
+```dart
+8
+```
+
+Medium
+
+```dart
+12
+```
+
+Large
+
+```dart
+16
+```
+
+Sheet
+
+```dart
+20
+```
+
+Camera Viewport
+
+```dart
+24
+```
+
+---
+
+# ELEVATION SYSTEM
+
+No Material shadows.
+
+Never use elevation > 1.
+
+Preferred separation:
+
+* Borders
+* Contrast
+* Spacing
+
+Not shadows.
+
+---
+
+# TYPOGRAPHY
+
+## Display Large
+
+28
+Bold
+
+Used for:
+
+* Home Title
+
+---
+
+## Section Header
+
+16
+SemiBold
+
+Used for:
+
+* Recent Documents
+
+---
+
+## Card Title
+
+15
+SemiBold
+
+Used for:
+
+* Document Names
+
+---
+
+## Body
+
+14
+Regular
+
+Used for:
+
+* Descriptions
+
+---
+
+## Meta
+
+12
+Medium
+
+Used for:
+
+* Dates
+* File Sizes
+
+---
+
+# MOTION SYSTEM
+
+All animations:
+
+Duration:
+
+100ms–250ms
+
+Curve:
+
+```dart
+Curves.easeOutCubic
+```
+
+---
+
+# PRESS FEEDBACK
+
+Every tappable element must:
+
+Scale:
+
+```dart
+1.0 → 0.96
+```
+
+Duration:
+
+100ms
+
+Recovery:
+
+100ms
+
+Mandatory for:
+
+* Buttons
+* Cards
+* Sheet Items
+* Filter Cards
+
+---
+
+# HAPTICS
+
+Light Haptic
+
+Use on:
+
+* Card Tap
+* Filter Selection
+
+Medium Haptic
+
+Use on:
+
+* Capture Button
+* Save Button
+
+Heavy Haptic
+
+Use on:
+
+* Successful PDF Export
+
+---
+
+# SCREEN 1 — HOME
+
+## App Bar
+
+Height:
+
+56
+
+Background:
+
+Transparent
+
+Title:
+
+ScanFlow
+
+Font:
+
+28 Bold
+
+No leading icon.
+
+No settings icon.
+
+No profile icon.
+
+---
+
+## Empty State
+
+Centered vertically.
+
+### Icon
+
+Document outline.
+
+Size:
+
+64
+
+Color:
+
+#E5E5EA
+
+### Title
+
+No Scanned Documents
+
+16 SemiBold
+
+### Subtitle
+
+Your captured items will appear here securely.
+
+14 Regular
+
+Centered.
+
+---
+
+## Document List
+
+Single column.
+
+Card height:
+
+72
+
+Radius:
+
+16
+
+Border:
+
+1px
+
+Color:
+
+#E5E5EA
+
+---
+
+## Card Layout
+
+48x48 thumbnail
+
+12 spacing
+
+Text block
+
+Title
+
+Meta line
+
+Chevron hidden.
+
+No trailing actions.
+
+---
+
+## Floating CTA
+
+Bottom Center
+
+Width:
+
+180
+
+Height:
+
+54
+
+Radius:
+
+27
+
+Label:
+
+New Scan
+
+Icon:
+
+camera_alt_rounded
+
+Color:
+
+#0066FF
+
+Text:
+
+White
+
+---
+
+# SCREEN 2 — SCANNER
+
+Background:
+
+Pure Black
+
+```dart
+#000000
+```
+
+---
+
+## Camera Frame
+
+Radius:
+
+24
+
+Centered
+
+Safe area respected
+
+---
+
+## Capture Controls
+
+Three-column layout
+
+Flash
+
+Capture
+
+Placeholder
+
+Always symmetrical.
+
+---
+
+## Capture Button
+
+Outer Ring
+
+76
+
+Stroke:
+
+3
+
+White
+
+Inner Circle
+
+60
+
+White
+
+Pressed:
+
+60 → 50
+
+Animated
+
+---
+
+# SCREEN 3 — EDITOR
+
+Background:
+
+#111111
+
+---
+
+## Document Preview
+
+Centered
+
+Max possible size
+
+Maintain aspect ratio
+
+Never crop content
+
+---
+
+## Filter Carousel
+
+Horizontal
+
+4 filters
+
+* Original
+* Grayscale
+* High Contrast
+* Black & White
+
+Selected:
+
+Blue label
+
+Unselected:
+
+Gray label
+
+---
+
+## Bottom Toolbar
+
+Cancel
+
+Rotate
+
+Apply & Continue
+
+Perfectly balanced spacing.
+
+---
+
+# SCREEN 4 — PDF PREVIEW
+
+Background:
+
+#F8F9FA
+
+---
+
+## Filename Card
+
+Height:
+
+56
+
+Radius:
+
+16
+
+Border:
+
+#E5E5EA
+
+Editable text
+
+No floating labels.
+
+No outlined input style.
+
+Looks like a paper card.
+
+---
+
+## Document Preview
+
+Centered
+
+Scrollable
+
+Real PDF representation
+
+---
+
+## Bottom Actions
+
+Primary
+
+Save Document
+
+Blue Filled Button
+
+Secondary
+
+Discard Scan
+
+Red Text Button
+
+---
+
+# SHARE SHEET
+
+Height:
+
+Auto
+
+Radius:
+
+20
+
+Background:
+
+White
+
+---
+
+## Drag Handle
+
+36x5
+
+Centered
+
+---
+
+## File Info Block
+
+PDF Icon
+
+Filename
+
+File Size
+
+Ready to Share
+
+---
+
+# LOADING STATES
+
+Never use generic spinner alone.
+
+Use:
+
+* Skeleton cards
+* Fade animations
+* Progress indicators
+
+---
+
+# ERROR STATES
+
+Every error state must include:
+
+* Icon
+* Title
+* Explanation
+* Retry Action
+
+---
+
+# ACCESSIBILITY
+
+Minimum touch target:
+
+48x48
+
+Minimum contrast ratio:
+
+4.5:1
+
+Dynamic font scaling supported.
+
+---
+
+# RESPONSIVE RULES
+
+Phone only.
+
+Portrait only.
+
+No tablet layout required.
+
+No landscape layout required.
+
+---
+
+# IMPLEMENTATION SUCCESS CRITERIA
+
+The UI is considered complete only if:
+
+* Every screen exactly matches this specification.
+* No visual decisions are left undefined.
+* No assumptions are required.
+* All existing logic remains untouched.
+* All existing workflows remain untouched.
+* All existing outputs remain untouched.
+* Only the visual experience is improved.
